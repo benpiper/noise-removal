@@ -203,3 +203,4 @@ Speech-optimized defaults: Threshold=50, Reduction=75, Freq Smoothing=45, Time S
 - Batch processing (extend ProcessingWorker to handle multiple files)
 - Real-time microphone input (add audio input device selection)
 - Spectrogram display (librosa + matplotlib)
+- Support for multiple audio formats
