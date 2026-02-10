@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QSpinBox, QLabel, QSlider)
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
 from ..utils.config import PREVIEW_DURATION, PREVIEW_START
+from .waveform_display import WaveformDisplay
 
 
 class PlaybackWorker(QThread):
@@ -67,6 +68,7 @@ class PreviewControls(QWidget):
         self.playback_worker = None
         self.preview_original = None
         self.preview_processed = None
+        self.waveform_display = WaveformDisplay()
         self._setup_ui()
 
     def _setup_ui(self):
@@ -111,15 +113,23 @@ class PreviewControls(QWidget):
         button_layout.addWidget(self.stop_btn)
 
         main_layout.addLayout(button_layout)
+
+        # Waveform display
+        main_layout.addWidget(self.waveform_display)
+
         main_layout.addStretch()
         self.setLayout(main_layout)
 
     def set_preview_data(self, original: np.ndarray, processed: np.ndarray):
-        """Store preview segments"""
+        """Store preview segments and display waveforms"""
         self.preview_original = original
         self.preview_processed = processed
         self.play_original_btn.setEnabled(True)
         self.play_processed_btn.setEnabled(True)
+
+        # Display waveform comparison
+        sample_rate = getattr(self, '_current_sample_rate', 44100)
+        self.waveform_display.display_comparison(original, processed, sample_rate)
 
     def set_full_audio_loaded(self, loaded: bool):
         """Enable/disable preview when audio is loaded"""
@@ -128,6 +138,8 @@ class PreviewControls(QWidget):
         if loaded:
             self.play_original_btn.setEnabled(True)
             self.play_processed_btn.setEnabled(True)
+        else:
+            self.waveform_display.clear()
 
     def _request_preview(self, play_original: bool = False):
         """Request preview generation"""
