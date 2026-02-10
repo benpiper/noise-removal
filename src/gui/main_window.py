@@ -14,7 +14,9 @@ from .preview_controls import PreviewControls
 from ..core import AudioProcessor
 from ..workers.processing_worker import ProcessingWorker
 from ..utils.validators import format_duration, is_valid_audio_file
-from ..utils.config import WINDOW_WIDTH, WINDOW_HEIGHT
+from ..utils.config import (WINDOW_WIDTH, WINDOW_HEIGHT,
+                            get_supported_input_formats, get_supported_output_formats,
+                            get_format_from_extension)
 
 
 class MainWindow(QMainWindow):
@@ -123,13 +125,47 @@ class MainWindow(QMainWindow):
         about_action = help_menu.addAction('About')
         about_action.triggered.connect(self._on_about)
 
+    def _build_open_filter(self) -> str:
+        """Build dynamic file filter for open dialog"""
+        formats = get_supported_input_formats()
+        format_patterns = ' '.join(f'*{fmt}' for fmt in formats)
+        return f'Audio Files ({format_patterns});;All Files (*)'
+
+    def _build_save_filters(self) -> tuple:
+        """Build dynamic file filters for save dialog.
+
+        Returns:
+            Tuple of (filter_string, format_map) where format_map maps
+            filter descriptions to soundfile format codes
+        """
+        output_formats = get_supported_output_formats()
+
+        # Sort formats alphabetically by extension
+        sorted_formats = sorted(output_formats.items())
+
+        filters = []
+        format_map = {}
+
+        for ext, format_code in sorted_formats:
+            # Create human-readable format name from extension
+            format_name = ext.upper().lstrip('.')
+            filter_desc = f'{format_name} Files (*{ext})'
+            filters.append(filter_desc)
+            format_map[filter_desc] = format_code
+
+        # Add "All Files" option
+        filters.append('All Files (*.*)')
+
+        filter_string = ';;'.join(filters)
+        return filter_string, format_map
+
     def _on_open_file(self):
         """Handle file open"""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             'Open Audio File',
             '',
-            'Audio Files (*.wav *.flac *.mp3 *.m4a);;All Files (*)'
+            self._build_open_filter()
         )
 
         if not file_path:
@@ -232,22 +268,52 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, 'No Audio', 'No processed audio to save')
             return
 
-        file_path, _ = QFileDialog.getSaveFileName(
+        filter_string, format_map = self._build_save_filters()
+
+        file_path, selected_filter = QFileDialog.getSaveFileName(
             self,
             'Save Processed Audio',
             '',
-            'WAV Files (*.wav);;FLAC Files (*.flac);;All Files (*)'
+            filter_string
         )
 
         if not file_path:
             return
 
-        # Ensure proper extension
-        if not file_path.lower().endswith(('.wav', '.flac')):
-            file_path += '.wav'
+        # Determine format from selected filter or file extension
+        format_code = None
+        if selected_filter in format_map:
+            format_code = format_map[selected_filter]
+
+        # Extract extension from file path
+        file_ext = '.' + file_path.rsplit('.', 1)[-1].lower() if '.' in file_path else ''
+
+        # If no format selected but extension is valid, use extension
+        if format_code is None and file_ext:
+            output_formats = get_supported_output_formats()
+            format_code = output_formats.get(file_ext)
+
+        # Ensure file has extension based on format
+        if format_code is None:
+            # Default to WAV if format couldn't be determined
+            format_code = 'WAV'
+            if not file_path.lower().endswith('.wav'):
+                file_path += '.wav'
+        else:
+            # Add extension if not present
+            supported = get_supported_output_formats()
+            # Find the extension for this format code
+            target_ext = None
+            for ext, code in supported.items():
+                if code == format_code:
+                    target_ext = ext
+                    break
+
+            if target_ext and not file_path.lower().endswith(target_ext):
+                file_path += target_ext
 
         try:
-            self.processor.save_processed_audio(file_path, self.processed_audio)
+            self.processor.save_processed_audio(file_path, self.processed_audio, format_code)
             self.statusBar().showMessage(f"Saved: {Path(file_path).name}")
             QMessageBox.information(self, 'Success', f'Saved to:\n{file_path}')
         except Exception as e:

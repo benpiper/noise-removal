@@ -1,13 +1,21 @@
 """Input validation utilities"""
 
 import os
-from .config import SUPPORTED_FORMATS, MIN_SAMPLE_RATE, MAX_SAMPLE_RATE
+from .config import (SUPPORTED_FORMATS, MIN_SAMPLE_RATE, MAX_SAMPLE_RATE,
+                     get_supported_input_formats, get_format_from_extension)
 
 
 def is_valid_audio_file(file_path: str) -> bool:
     """Check if file exists and has supported audio format"""
     if not os.path.isfile(file_path):
         return False
+
+    # Try dynamic formats first
+    supported = get_supported_input_formats()
+    if file_path.lower().endswith(supported):
+        return True
+
+    # Fallback to hardcoded list for backward compatibility
     return file_path.lower().endswith(SUPPORTED_FORMATS)
 
 

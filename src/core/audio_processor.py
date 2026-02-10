@@ -5,7 +5,7 @@ from typing import Callable, Tuple, Optional
 from .audio_loader import AudioLoader
 from .noise_profiler import NoiseProfiler
 from .noise_reducer import NoiseReducer
-from ..utils.config import PREVIEW_DURATION, PREVIEW_START
+from ..utils.config import PREVIEW_DURATION, PREVIEW_START, get_format_from_extension
 
 
 class AudioProcessor:
@@ -124,13 +124,16 @@ class AudioProcessor:
 
         return processed
 
-    def save_processed_audio(self, output_path: str, audio_data: np.ndarray) -> bool:
+    def save_processed_audio(self, output_path: str, audio_data: np.ndarray,
+                            format: Optional[str] = None) -> bool:
         """
         Save processed audio to file.
 
         Args:
             output_path: Output file path
             audio_data: Audio to save
+            format: Soundfile format code (e.g., 'WAV', 'FLAC', 'OGG').
+                   Auto-detected from extension if None.
 
         Returns:
             True if successful, False otherwise
@@ -139,7 +142,11 @@ class AudioProcessor:
             return False
 
         try:
-            AudioLoader.save(output_path, audio_data, self.sample_rate)
+            # Auto-detect format if not provided
+            if format is None:
+                format = get_format_from_extension(output_path)
+
+            AudioLoader.save(output_path, audio_data, self.sample_rate, format)
             return True
         except Exception as e:
             print(f"Error saving file: {e}")
