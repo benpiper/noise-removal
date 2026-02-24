@@ -1,172 +1,112 @@
-# Noise Removal Tool
+# Cleanscriber
 
-A professional Python application for dynamic background noise removal from audio files. Automatically detects and removes noise without requiring users to manually select noise samples.
+Cleanscriber is a fully-automated command line tool designed to rescue spoken audio that is soft, noisy, or ambiguous. It automatically cleans up audio using a series of dynamic noise reduction, noise gate, and compression algorithms, utilizing OpenAI's Whisper (or Faster-Whisper) to mathematically determine the best-sounding result via confidence scores.
 
 ## Features
 
-- **Automatic Noise Detection**: Analyzes the first second of audio to profile background noise
-- **Non-Stationary Noise Reduction**: Adapts to changing noise patterns throughout the audio
-- **Intuitive Controls**: Four tunable parameters optimized for speech (Threshold, Reduction Amount, Frequency Smoothing, Time Smoothing)
-- **Preview Capability**: A/B compare original vs processed audio before processing the full file
-- **Multiple Format Support**: WAV, FLAC, MP3, M4A
-- **Responsive UI**: Background threading keeps interface responsive during processing
-- **Professional Quality**: Uses spectral gating algorithm for natural-sounding results
+- **Automated Audio Cleanup**: Unattended processing. Finds the optimal noise reduction and equalizer settings automatically.
+- **AI-Driven Evaluation**: Generates 7 different "candidates" of the audio and uses Whisper transcripts to grade the intelligibility of each candidate.
+- **Multiple NLP Models**: Supports the standard `openai-whisper` package as well as `faster-whisper` for optimized large model inference.
+- **Export Transcripts**: Along with the best-sounding cleaned audio file, exports professional `.txt` and `.srt` transcripts mapped to the optimal audio.
+- **Rich Reporting**: Outputs a `summary.md` detailing the confidence scores of each candidate and the exact parameters used.
+- **Highly Configurable**: Control noise reduction intensity, noise gate thresholds, and compression ratios statically via JSON.
 
 ## Installation
 
 ### Prerequisites
 
 - Python 3.8 or higher
-- pip (Python package manager)
+- `ffmpeg` installed on your system path
+- (Optional but Releated) CUDA Toolkit / cuDNN for GPU acceleration
 
 ### Setup
 
 1. Clone or download this repository
-
 2. Navigate to the project directory:
-```bash
-cd noise-removal
-```
-
+   ```bash
+   cd noise-removal
+   ```
 3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
+   *(Note: This includes heavy ML dependencies like `torch`, `openai-whisper`, and `faster-whisper`.)*
 
 ## Usage
 
-### Running the Application
+### Running the Pipeline
+
+Cleanscriber runs automatically, taking a single input file and depositing timestamped results in the output folder.
 
 ```bash
-python main.py
+./cleanscriber.py path/to/audio/file.mp3
 ```
 
-### Workflow
+By default, the script looks for files in the `input/` folder if a relative filename is provided, and saves all outputs into an isolated subfolder inside the `output/` directory so runs are never overwritten.
 
-1. **Open File**: Click "File → Open" or use the File menu to load an audio file
-   - Supported formats: WAV, FLAC, MP3, M4A
-   - File information (sample rate, duration) is displayed
+### CLI Arguments
 
-2. **Adjust Parameters** (Parameters tab):
-   - **Threshold**: Controls sensitivity to noise (0-100)
-     - Lower values = more aggressive noise removal
-     - Higher values = preserve more original audio
-   - **Reduction Amount**: How much to reduce detected noise (0-100)
-     - Lower values = subtle reduction
-     - Higher values = aggressive reduction
-   - **Frequency Smoothing**: Spectral smoothing (0-100)
-     - Affects frequency-domain smoothness
-   - **Time Smoothing**: Temporal smoothing (0-100)
-     - Affects how smoothly the effect changes over time
-   - Click "Reset to Defaults" to restore optimal speech settings
+```
+usage: cleanscriber.py [-h] [--output-dir OUTPUT_DIR] [--model MODEL] input_file
 
-3. **Preview** (Preview tab):
-   - Set start time and duration for preview segment (default: first 5 seconds)
-   - Click "Play Original" to hear unprocessed audio
-   - Click "Play Processed" to process and play segment with current parameters
-   - Compare the two to verify the effect
-   - Click "Stop" to stop playback
+positional arguments:
+  input_file            Path to the noisy input audio file (defaults to looking inside ./input/)
 
-4. **Process Full File**:
-   - Once satisfied with preview settings, click "Process Full File"
-   - Progress bar shows processing status
-   - Processing completes automatically
+options:
+  -h, --help            show this help message and exit
+  --output-dir OUTPUT_DIR
+                        Directory to save the cleaned files (default: ./output)
+  --model MODEL         Whisper model size (default: tiny)
+```
 
-5. **Save**:
-   - Click "Save Processed Audio"
-   - Choose output format (WAV recommended, FLAC supported)
-   - Select save location
+## Configuration File
 
-## Default Parameters
+While you can pass the model via the CLI, deep customization of the audio pipeline is handled via a JSON configuration file. By default, `config/config.json` should look like this:
 
-The application uses speech-optimized defaults:
+```json
+{
+  "input_dir": "input",
+  "output_dir": "output",
+  "model": "faster-whisper-large-v3",
+  "noise_reduction": {
+    "minimal": 0.5,
+    "middle": 0.75,
+    "aggressive": 0.9
+  },
+  "noise_gate": -50.0,
+  "compressor": {
+    "minimal": {
+      "threshold_db": -20.0,
+      "ratio": 2.0,
+      "makeup_gain": 0.0
+    },
+    "middle": {
+      "threshold_db": -30.0,
+      "ratio": 4.0,
+      "makeup_gain": 0.0
+    },
+    "aggressive": {
+      "threshold_db": -40.0,
+      "ratio": 8.0,
+      "makeup_gain": 0.0
+    }
+  },
+  "cuda": true
+}
+```
 
-| Parameter | Default | Effect |
-|-----------|---------|--------|
-| Threshold | 50 | Balanced noise detection |
-| Reduction | 75 | Strong but natural-sounding |
-| Freq Smoothing | 45 | Mid-range smoothing |
-| Time Smoothing | 40 | Subtle temporal smoothing |
+### Configuration Options
+* **model**: Whisper model size string (`tiny`, `base`, `small`, `medium`, `large`). Prefix the model with `faster-whisper-` (e.g., `faster-whisper-large-v3`) to route the evaluation through the highly-optimized CTranslate2 backend.
+* **noise_reduction**: The proportion of noise subtracted (0.0 to 1.0) for Candidates 1, 2, and 3.
+* **noise_gate**: The hard dB threshold (-50 default) where audio is muted to dead silence to prevent Whisper hallucination loops.
+* **compressor**: Defines the `threshold_db`, `ratio`, and `makeup_gain` across the three compression presets used to generate Candidates 4, 5, and 6.
 
-## Performance
+## How It Works
 
-- **Preview Generation**: < 1 second for 5-second segment
-- **Full File Processing**: ~2-5 seconds per minute of audio
-- **Memory Usage**: ~2-3x the audio file size during processing
-
-## Architecture
-
-### Core Processing (`src/core/`)
-
-- **AudioLoader**: Load/save audio files with format conversion
-- **NoiseProfiler**: Automatically detect noise profile
-- **NoiseReducer**: Apply spectral gating noise reduction
-- **AudioProcessor**: Coordinate the processing pipeline
-
-### GUI (`src/gui/`)
-
-- **MainWindow**: Primary application window with menus and layout
-- **ControlPanel**: Parameter sliders for noise reduction tuning
-- **PreviewControls**: Audio playback and preview region selection
-
-### Workers (`src/workers/`)
-
-- **ProcessingWorker**: Background thread for responsive UI during processing
-
-## Technical Details
-
-### Noise Reduction Algorithm
-
-Uses `noisereduce` library with non-stationary spectral gating:
-- Adapts to changing background noise
-- Preserves speech clarity and natural timbre
-- Automatic noise profiling from audio start
-
-### Audio I/O
-
-- **Loading**: librosa (flexible format support)
-- **Saving**: soundfile (high quality)
-- **Playback**: sounddevice
-
-### GUI Framework
-
-PyQt6 for professional, feature-rich interface with native look and feel
-
-## Troubleshooting
-
-### No Sound During Preview
-
-- Ensure your system audio is working
-- Check audio device configuration
-- Try closing and reopening the application
-
-### Processing Takes Too Long
-
-- Close other applications to free up CPU
-- Processing time depends on audio length and CPU speed
-- Progress bar shows current status
-
-### Poor Quality Results
-
-- Try adjusting parameters:
-  - Lower Threshold for more aggressive noise removal
-  - Increase Reduction Amount for stronger effect
-  - Adjust Frequency/Time Smoothing for natural sound
-- Ensure the audio file contains clear noise in first second
-
-## Future Enhancements
-
-- Waveform visualization
-- Advanced noise profiling modes
-- Preset system for parameter configurations
-- Batch processing
-- Real-time processing from microphone input
-- Spectrogram visualization
-
-## License
-
-This software is provided as-is for personal and commercial use.
-
-## Support
-
-For issues or questions, please check the code comments and documentation or modify the application to suit your needs.
+1. **Candidate 0:** Normalizes the original audio to 0 dB and applies a high-pass filter (> 80 Hz).
+2. **Candidates 1-3:** Applies minimal, medium, and aggressive static noise reduction.
+3. **Base Evaluation:** Uses Whisper to score Candidates 0, 1, 2, and 3. The one with the highest confidence is declared the "Base Winner".
+4. **Noise Gate:** Applies the configured noise gate (e.g., -50 dB) to the Base Winner.
+5. **Candidates 4-6:** Applies dynamic range compression (minimal, medium, aggressive) to the gated audio and normalizes back to 0 dB.
+6. **Final Evaluation:** Uses Whisper to score Candidates 4, 5, 6, and Candidate 0. The highest overall score is the final winner.
+7. **Export:** The best audio is saved, along with the finalized Transcription text (`.txt`) and SubRip Subtitle (`.srt`) formats.
