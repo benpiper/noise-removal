@@ -1,7 +1,7 @@
 {
   "input_dir": "input",
   "output_dir": "output",
-  "model": "large",
+  "model": "faster-whisper-large-v3",
   "noise_reduction": {
     "minimal": 0.5,
     "middle": 0.75,
@@ -25,5 +25,5 @@
       "makeup_gain": 0.0
     }
   },
-  "cuda": false
+  "cuda": true
 }

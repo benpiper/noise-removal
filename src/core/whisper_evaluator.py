@@ -50,7 +50,6 @@ class WhisperEvaluator:
                 condition_on_previous_text=False,
                 temperature=0.0,
                 no_speech_threshold=0.6,
-                logprob_threshold=-1.0,
                 compression_ratio_threshold=2.4,
                 language="en",
             )
@@ -72,7 +71,6 @@ class WhisperEvaluator:
                 condition_on_previous_text=False,
                 temperature=0.0,
                 no_speech_threshold=0.6,
-                logprob_threshold=-1.0,
                 compression_ratio_threshold=2.4,
                 language="en",
                 fp16=False,  # ensure CPU compatibility without warnings
