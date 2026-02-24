@@ -1,0 +1,29 @@
+{
+  "input_dir": "input",
+  "output_dir": "output",
+  "model": "faster-whisper-large-v3",
+  "noise_reduction": {
+    "minimal": 0.5,
+    "middle": 0.75,
+    "aggressive": 0.9
+  },
+  "noise_gate": -50.0,
+  "compressor": {
+    "minimal": {
+      "threshold_db": -20.0,
+      "ratio": 2.0,
+      "makeup_gain": 0.0
+    },
+    "middle": {
+      "threshold_db": -30.0,
+      "ratio": 4.0,
+      "makeup_gain": 0.0
+    },
+    "aggressive": {
+      "threshold_db": -40.0,
+      "ratio": 8.0,
+      "makeup_gain": 0.0
+    }
+  },
+  "cuda": false
+}

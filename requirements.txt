@@ -6,9 +6,10 @@ sounddevice==0.4.6
 numpy>=1.24.0
 scipy>=1.11.0
 
-# GUI
-PyQt6==6.6.1
-matplotlib==3.8.2
+# Speech Recognition
+openai-whisper==20231117
+torch>=2.0.0
+tqdm>=4.66.1
 
 # Optional for MP3 support
 pydub==0.25.1

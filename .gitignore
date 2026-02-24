@@ -35,9 +35,14 @@ wheels/
 *.pyc
 .env
 .cache/
+*.txt
+*.srt
+summary.md
+*.log
 
 # Audio files (optional - comment out to track audio)
 *.wav
 *.flac
 *.mp3
 *.m4a
+*.WAV
